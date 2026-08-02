@@ -1,0 +1,5 @@
+@extends('errors.layout')
+@section('code', '419')
+@section('icon', '<i class="fa-solid fa-clock-rotate-left"></i>')
+@section('heading', 'Sesión expirada')
+@section('message', 'Tu sesión expiró por seguridad. Recarga la página e inténtalo de nuevo.')

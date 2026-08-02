@@ -1,0 +1,5 @@
+@extends('errors.layout')
+@section('code', '403')
+@section('icon', '<i class="fa-solid fa-lock"></i>')
+@section('heading', 'Acceso denegado')
+@section('message', 'No tienes permiso para ver esta página o recurso. Si crees que es un error, contacta al administrador.')
