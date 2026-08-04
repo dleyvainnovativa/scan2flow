@@ -11,6 +11,8 @@ use App\Http\Controllers\AuditController;
 use App\Http\Controllers\Auth\SessionLoginController;
 use App\Http\Controllers\IngestionController;
 use App\Http\Controllers\DocumentReviewController;
+use App\Http\Controllers\Platform\TenantController;
+
 /*
 |--------------------------------------------------------------------------
 | Web Routes — Phase 5 (Polish: audit, errors, flash)
@@ -24,7 +26,7 @@ Route::middleware('guest')->group(function () {
     Route::post('/login', [SessionLoginController::class, 'store'])->name('login.store');
 });
 
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'tenant'])->group(function () {
     Route::post('/logout', [SessionLoginController::class, 'destroy'])->name('logout');
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/search', [SearchController::class, 'index'])->name('search.index');
@@ -74,3 +76,23 @@ Route::middleware('auth')->group(function () {
         Route::post('/ingestion/{template}/retry', [IngestionController::class, 'retryFailed'])->name('ingestion.retry');
     });
 });
+
+Route::middleware(['auth', \App\Http\Middleware\EnsurePlatformAdmin::class])
+    ->prefix('platform')
+    ->name('platform.')
+    ->group(function () {
+        Route::get('/tenants', [TenantController::class, 'index'])->name('tenants.index');
+        Route::post('/tenants', [TenantController::class, 'store'])->name('tenants.store');
+        Route::get('/tenants/{tenant}', [TenantController::class, 'show'])->name('tenants.show');
+        Route::post('/tenants/{tenant}/plan', [TenantController::class, 'assignPlan'])->name('tenants.plan');
+        Route::post('/tenants/{tenant}/topup', [TenantController::class, 'topUp'])->name('tenants.topup');
+        Route::post('/tenants/{tenant}/status', [TenantController::class, 'setStatus'])->name('tenants.status');
+        Route::post('/tenants/{tenant}/reassign-user', [TenantController::class, 'reassignUser'])
+            ->name('tenants.reassign-user');
+
+        // Area migration (dry-run + commit)
+        Route::post('/tenants/{tenant}/area-move/preview', [TenantController::class, 'previewAreaMove'])
+            ->name('tenants.area-move.preview');
+        Route::post('/tenants/{tenant}/area-move', [TenantController::class, 'migrateArea'])
+            ->name('tenants.area-move');
+    });

@@ -6,9 +6,11 @@ use Illuminate\Contracts\Auth\Authenticatable as AuthenticatableContract;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use App\Models\Concerns\BelongsToTenantUnscoped;
 
 class User extends Authenticatable implements AuthenticatableContract
 {
+    use BelongsToTenantUnscoped;
     use Notifiable;
 
     protected $fillable = [
@@ -18,16 +20,24 @@ class User extends Authenticatable implements AuthenticatableContract
         'role',
         'is_active',
         'last_login_at',
+        'tenant_id',
+        'is_platform_admin'
     ];
 
     protected $casts = [
         'is_active'     => 'boolean',
         'last_login_at' => 'datetime',
+        'is_platform_admin' => 'boolean'
     ];
 
     public function getAuthPassword(): string
     {
         return '';
+    }
+
+    public function isPlatformAdmin(): bool
+    {
+        return (bool) $this->is_platform_admin;
     }
 
     /* ---- Relationships ---------------------------------------------------- */

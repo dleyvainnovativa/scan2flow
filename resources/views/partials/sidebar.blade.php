@@ -3,6 +3,7 @@
 $is = fn ($pattern) => request()->routeIs($pattern);
 $cls = fn ($pattern) => $is($pattern) ? 'active' : '';
 $isAdmin = auth()->check() && auth()->user()->isAdmin();
+$isAdminPlatform = auth()->check() && auth()->user()->isPlatformAdmin();
 @endphp
 <aside class="dm-sidebar" aria-label="Navegación principal">
     <div class="dm-sidebar__brand">
@@ -35,6 +36,12 @@ $isAdmin = auth()->check() && auth()->user()->isAdmin();
         </a>
         <a href="{{ route('audit.index') }}" class="dm-nav-link {{ $cls('audit.*') }}" @if($is('audit.*')) aria-current="page" @endif>
             <i class="fa-solid fa-clock-rotate-left"></i> Auditoría
+        </a>
+        @endif
+        @if ($isAdminPlatform)
+        <div class="dm-nav-label">Plataforma</div>
+        <a href="{{ route('platform.tenants.index') }}" class="dm-nav-link {{ $cls('tenants.*') }}" @if($is('tenants.*')) aria-current="page" @endif>
+            <i class="fa-solid fa-building"></i> Tenants
         </a>
         @endif
     </nav>

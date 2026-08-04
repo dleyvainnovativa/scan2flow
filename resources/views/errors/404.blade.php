@@ -1,5 +1,5 @@
 @extends('errors.layout')
 @section('code', '404')
-@section('icon', '<i class="fa-solid fa-map-signs"></i>')
+@section('icon', 'fa-solid fa-map-signs')
 @section('heading', 'Página no encontrada')
 @section('message', 'La página que buscas no existe o fue movida.')

@@ -5,12 +5,21 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+use App\Models\Concerns\BelongsToTenant;
+
 class IngestionRecord extends Model
 {
+    use BelongsToTenant;
+
     protected $fillable = [
-        'template_id', 'document_id', 'base_name',
-        'source_pdf_path', 'source_xml_path',
-        'status', 'error', 'meta',
+        'template_id',
+        'document_id',
+        'base_name',
+        'source_pdf_path',
+        'source_xml_path',
+        'status',
+        'error',
+        'meta',
     ];
 
     protected $casts = [

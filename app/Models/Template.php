@@ -6,9 +6,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
+use App\Models\Concerns\BelongsToTenant;
 
 class Template extends Model
 {
+    use BelongsToTenant;
     protected $fillable = [
         'area_id',
         'name',

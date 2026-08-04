@@ -15,6 +15,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use App\Services\PageBalanceService;
+use App\Exceptions\InsufficientPagesException;
 
 class DocumentController extends Controller
 {
@@ -23,6 +25,7 @@ class DocumentController extends Controller
         private MetadataService $metadata,
         private AuditService $audit,
         private PdfPageCounter $pageCounter,
+        private PageBalanceService $balance,
     ) {}
 
     public function index(Request $request, Area $area)
@@ -95,7 +98,14 @@ class DocumentController extends Controller
             'Requiere permiso de edición en esta área.'
         );
 
-        $document = DB::transaction(function () use ($request, $template) {
+        $pageCount = $this->pageCounter->count($request->file('pdf')->getRealPath()) ?? 0;
+        if ($pageCount > 0 && ! $this->balance->canCover($pageCount, $request->user()->tenant_id)) {
+            return response()->json([
+                'message' => 'Tu cuenta no tiene páginas suficientes para subir este documento.',
+            ], 402); // 402 Payment Required
+        }
+
+        $document = DB::transaction(function () use ($request, $template, $pageCount) {
             $pdfPath = $this->storage->store($template, $request->file('pdf'));
 
             $xmlPath = null;
@@ -123,6 +133,16 @@ class DocumentController extends Controller
                 $document->content()->create(['body' => $body, 'source' => 'manual']);
             }
 
+            if ($pageCount > 0) {
+                $this->balance->debit(
+                    pages: $pageCount,
+                    tenantId: $request->user()->tenant_id,
+                    subjectType: \App\Models\Document::class,
+                    subjectId: $document->id,
+                    causedBy: $request->user()->id,
+                    note: 'Carga manual: ' . $document->title,
+                );
+            }
             return $document;
         });
 

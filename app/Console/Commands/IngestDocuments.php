@@ -3,7 +3,9 @@
 namespace App\Console\Commands;
 
 use App\Ingestion\IngestionService;
+use App\Jobs\IngestTemplateJob;
 use App\Models\Template;
+use App\Support\TenantContext;
 use Illuminate\Console\Command;
 
 /**
@@ -34,9 +36,21 @@ class IngestDocuments extends Command
 
         $totals = ['found' => 0, 'created' => 0, 'skipped' => 0, 'failed' => 0];
 
+        // $ctx = app(TenantContext::class);
+        // foreach ($templates as $template) {
+        //     if (config('ingestion.mode') === 'queue') {
+        //         IngestTemplateJob::dispatch($template->id, $template->tenant_id);
+        //     } else {
+        //         $ctx->set($template->tenant_id);      // >>> scope sync run
+        //         $ingestion->ingestTemplate($template);
+        //         $ctx->set(null);                       // >>> clear
+        //     }
+        // }
         foreach ($templates as $template) {
             $this->info("Procesando: {$template->name} (#{$template->id})");
+            app(TenantContext::class)->set($template->tenant_id);
             $summary = $ingestion->ingestTemplate($template);
+            app(TenantContext::class)->set(null);
 
             foreach (['found', 'created', 'skipped', 'failed'] as $k) {
                 $totals[$k] += $summary[$k];

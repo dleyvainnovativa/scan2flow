@@ -422,3 +422,7 @@ hr { border-color: var(--dm-border); opacity: 1; }
 /* ---- Bootstrap bg-* helpers that leak white in dark ----------------------- */
 .bg-white { background: var(--dm-surface) !important; color: var(--dm-text); }
 .bg-light { background: var(--dm-surface-2) !important; color: var(--dm-text); }
+
+.remain-data{
+  vertical-align: middle;
+}

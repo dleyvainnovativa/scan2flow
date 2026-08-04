@@ -15,19 +15,16 @@ class DashboardController extends Controller
     {
         $user = $request->user();
         $isAdmin = $user->isAdmin();
-
         // Areas the user can see (admins: all; members: granted-view areas).
         $areaIds = $isAdmin
             ? Area::pluck('id')
-            : $user->areas()->wherePivot('can_view', true)->pluck('areas.id');
-
-
+            : $user->areas()->where('can_view', true)->pluck('areas.id');
         $stats = [
             'areas'     => $areaIds->count(),
             'templates' => Template::whereIn('area_id', $areaIds)->count(),
             'documents' => Document::whereIn('area_id', $areaIds)->count(),
             'pages'     => (int) Document::whereIn('area_id', $areaIds)->sum('page_count'), // >>> ADD
-            'users'     => $isAdmin ? User::count() : null,
+            'users'     => $isAdmin ? User::forCurrentTenant()->count() : null,
         ];
         $docCountQuery = Document::whereIn('area_id', $areaIds);
         DocumentVisibility::scope($docCountQuery, $user);
@@ -50,7 +47,6 @@ class DashboardController extends Controller
             ->orderBy('name')
             ->limit(6)
             ->get();
-
         return view('dashboard.index', compact('stats', 'recentDocuments', 'areas', 'isAdmin'));
     }
 }

@@ -27,7 +27,12 @@ class DocumentStorageService
     /** Directory (relative to the disk) for a template's files. */
     public function directoryFor(Template $template): string
     {
-        return "{$this->root}/{$template->area->slug}/{$template->slug}";
+        // Partition every tenant's files under their own top-level directory.
+        // Maps directly to a per-tenant S3 prefix on AWS, and keeps one tenant's
+        // documents physically separate from another's on shared storage.
+        $tenantSegment = 'tenant-' . ($template->tenant_id ?? 'unknown');
+
+        return "{$this->root}/{$tenantSegment}/{$template->area->slug}/{$template->slug}";
     }
 
     /**

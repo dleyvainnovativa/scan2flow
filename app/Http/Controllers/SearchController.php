@@ -27,7 +27,8 @@ class SearchController extends Controller
         // Areas the user can pick from as a filter.
         $areas = $request->user()->isAdmin()
             ? Area::orderBy('name')->get()
-            : $request->user()->areas()->wherePivot('can_view', true)->orderBy('name')->get();
+            : $request->user()->areas()->where('can_view', true)->orderBy('name')->get();
+
 
         return view('search.index', compact('q', 'results', 'areas', 'filters'));
     }

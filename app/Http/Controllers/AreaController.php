@@ -18,7 +18,7 @@ class AreaController extends Controller
             ? Area::withCount(['templates', 'documents'])
             ->withSum('documents as pages_sum', 'page_count')
             ->orderBy('name')->get()
-            : $user->areas()->wherePivot('can_view', true)
+            : $user->areas()->where('can_view', true)
             ->withCount(['templates', 'documents'])
             ->withSum('documents as pages_sum', 'page_count')
             ->orderBy('name')->get();
@@ -28,24 +28,23 @@ class AreaController extends Controller
 
     public function show(Request $request, Area $area)
     {
+        // dd($request);
         $this->authorize('view', $area);
-
         $area->load(['templates.fields']);
-
         // Permission management panel data (admin only).
         $users = $request->user()->isAdmin()
-            ? User::active()->orderBy('name')->get()
+            ? User::active()->forCurrentTenant()->orderBy('name')->get()
             : collect();
         $granted = $area->users()->pluck('users.id')->all();
         $pivots = $area->users()->get()->keyBy('id');
-
-        return view('areas.show', compact('area', 'users', 'granted', 'pivots'));
+        $remainingTemplates = app(\App\Services\PlanGate::class)->remaining('templates');
+        return view('areas.show', compact('area', 'users', 'granted', 'pivots', 'remainingTemplates'));
     }
 
     public function store(AreaRequest $request)
     {
         $this->authorize('create', Area::class);
-
+        app(\App\Services\PlanGate::class)->ensureCanCreate('areas');
         $area = Area::create($request->validated());
 
         return response()->json(['message' => 'Área creada.', 'area' => $area], 201);
@@ -75,7 +74,13 @@ class AreaController extends Controller
         $this->authorize('managePermissions', $area);
 
         $data = $request->validate([
-            'user_id'      => ['required', 'exists:users,id'],
+            'user_id'      => [
+                'required',
+                // Must be a user in the CURRENT tenant — prevents attaching a
+                // foreign-tenant user by passing their id (User is unscoped).
+                \Illuminate\Validation\Rule::exists('users', 'id')
+                    ->where('tenant_id', app(\App\Support\TenantContext::class)->id()),
+            ],
             'can_view'     => ['boolean'],
             'can_download' => ['boolean'],
             'can_edit'     => ['boolean'],

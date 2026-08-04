@@ -20,7 +20,11 @@ class UserController extends Controller
 
     public function index()
     {
-        $users = User::orderByDesc('created_at')->paginate(20);
+        // User is intentionally NOT globally tenant-scoped (auth guard must load
+        // users without tenant context). So filter the LIST explicitly.
+        $users = User::forCurrentTenant()
+            ->orderByDesc('created_at')
+            ->paginate(20);
 
         return view('users.index', compact('users'));
     }
@@ -33,17 +37,19 @@ class UserController extends Controller
             'password' => ['required', 'string', 'min:8'],
             'role'     => ['required', Rule::in(['admin', 'member'])],
         ]);
+        app(\App\Services\PlanGate::class)->ensureCanCreate('users');
 
         // Create in Firebase first; if the local insert fails, roll it back.
         $uid = $this->firebase->createUser($data['email'], $data['password'], $data['name']);
 
         try {
-            $user = DB::transaction(fn () => User::create([
+            $user = DB::transaction(fn() => User::create([
                 'firebase_uid' => $uid,
                 'name'         => $data['name'],
                 'email'        => $data['email'],
                 'role'         => $data['role'],
                 'is_active'    => true,
+                'tenant_id' => $request->user()->tenant_id
             ]));
         } catch (Throwable $e) {
             // Compensating action: remove the orphaned Firebase user.

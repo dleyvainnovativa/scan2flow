@@ -17,7 +17,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 
-    @vite(['resources/js/app.js'])
+    @vite(['resources/css/theme.css','resources/js/app.js'])
 </head>
 <body>
 <div class="d-flex align-items-center justify-content-center" style="min-height: 100vh; padding: 1.5rem;">
@@ -92,6 +92,7 @@
             const body = await res.json();
 
             if (!res.ok) { showError(body.message || 'No se pudo iniciar sesión.'); return; }
+            // console.log(body);
             window.location.href = body.redirect;
         } catch (e) {
             const map = {

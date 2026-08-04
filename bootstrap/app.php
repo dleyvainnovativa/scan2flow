@@ -23,14 +23,29 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        // >>> ADD THESE ALIASES <<<
         $middleware->alias([
             'firebase' => VerifyFirebaseToken::class,  // API bearer-token guard
             'admin'    => EnsureUserIsAdmin::class,     // admin-only routes
+            'tenant'   => \App\Http\Middleware\ResolveTenant::class,
+        ]);
+
+        // ResolveTenant on the web group sets tenant context for requests that
+        // DON'T use route-model binding (index/list pages). Requests WITH
+        // binding ({id} routes) get context set even earlier — inside the
+        // binding callback in RouteBindingServiceProvider — so the binding query
+        // is never hidden by the fail-closed scope. Both set the same context.
+        $middleware->web(append: [
+            \App\Http\Middleware\ResolveTenant::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //
+        $exceptions->render(function (\App\Exceptions\PlanLimitException $e, $request) {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => $e->getMessage()], 403);
+            }
+            return back()->with('error', $e->getMessage());
+        });
     })
     ->create();
 

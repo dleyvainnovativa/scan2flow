@@ -7,9 +7,17 @@
 
     <div class="dm-page-head d-flex justify-content-between align-items-start flex-wrap gap-3">
         <div>
-            <h1>Plantillas</h1>
+            <h1>
+                Plantillas
+ @if (!is_null($remainingTemplates))
+        <span class="dm-badge remain-data">{{ $used }} / {{ $used + $remainingTemplates }}</span>
+        @if ($remainingTemplates <= 0) {{-- disable/hide the create button --}} @endif
+        @endif
+            </h1>
+            
             <p>Tipos documentales y la estructura de metadatos que capturan.</p>
         </div>
+       
         @if ($isAdmin)
             <button class="btn btn-primary" id="btn-new-tpl">
                 <i class="fa-solid fa-plus me-1"></i> Nueva plantilla

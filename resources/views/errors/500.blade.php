@@ -1,5 +1,5 @@
 @extends('errors.layout')
 @section('code', '500')
-@section('icon', '<i class="fa-solid fa-triangle-exclamation"></i>')
+@section('icon', 'fa-solid fa-triangle-exclamation')
 @section('heading', 'Error del servidor')
 @section('message', 'Algo salió mal de nuestro lado. Intenta de nuevo en un momento.')

@@ -9,9 +9,11 @@ use App\Models\TemplateField;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use App\Services\PlanGate;
 
 class TemplateController extends Controller
 {
+    public function __construct(private PlanGate $planGate) {}
     public function index(Request $request)
     {
         $user = $request->user();
@@ -19,22 +21,25 @@ class TemplateController extends Controller
         $query = Template::with('area')->withCount('fields')->orderBy('name');
 
         if (! $user->isAdmin()) {
-            $areaIds = $user->areas()->wherePivot('can_view', true)->pluck('areas.id');
+            $areaIds = $user->areas()->where('can_view', true)->pluck('areas.id');
             $query->whereIn('area_id', $areaIds);
         }
 
         $templates = $query->get();
         $areas = $user->isAdmin() ? Area::orderBy('name')->get() : collect();
+        $remainingTemplates = app(\App\Services\PlanGate::class)->remaining('templates');
+        $used = $remainingTemplates !== null ? $templates->count() : null;
 
-        return view('templates.index', compact('templates', 'areas'));
+        return view('templates.index', compact('templates', 'areas', 'remainingTemplates', 'used'));
     }
 
     public function show(Request $request, Template $template)
     {
         $this->authorize('view', $template);
         $template->load(['area', 'fields']);
-
-        return view('templates.show', compact('template'));
+        $remainingTemplates = app(\App\Services\PlanGate::class)->remaining('templates');
+        $used = $remainingTemplates !== null ? Template::count() : null;
+        return view('templates.show', compact('template', 'remainingTemplates', 'used'));
     }
 
     /** JSON payload used by the edit modal to prefill the builder. */
@@ -58,6 +63,7 @@ class TemplateController extends Controller
     public function store(TemplateRequest $request)
     {
         $this->authorize('create', Template::class);
+        $this->planGate->ensureCanCreate('templates');
 
         $template = DB::transaction(function () use ($request) {
             $template = Template::create($request->safe()->only([

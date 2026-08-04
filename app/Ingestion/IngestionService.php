@@ -12,6 +12,10 @@ use App\Services\MetadataService;
 use App\Services\PdfPageCounter;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+
+use App\Services\PageBalanceService;
+use App\Exceptions\InsufficientPagesException;
+
 use Throwable;
 
 /**
@@ -34,6 +38,7 @@ class IngestionService
         private AiStructuring $ai,
         private IngestionArchiver $archiver,
         private PdfPageCounter $pageCounter,
+        private PageBalanceService $balance,   // >>> ADD
     ) {}
 
     /**
@@ -87,6 +92,14 @@ class IngestionService
                 $summary['failed']++;
                 $summary['details'][] = "«{$base}»: {$e->getMessage()}";
                 $this->archiver->archive($inputDir, $files, success: false);
+            } catch (InsufficientPagesException $e) {
+                $record->status = 'failed';
+                $record->error  = 'Saldo de páginas insuficiente.';
+                $record->save();
+                $summary['failed']++;
+                $summary['details'][] = "«{$base}»: {$e->getMessage()}";
+                // NOTE: do NOT archive as success; leave the file for a retry after top-up.
+                continue;
             }
         }
 
@@ -155,9 +168,17 @@ class IngestionService
         // 4. Derive a human title (prefer folio/uuid, else base name).
         $title = $this->deriveTitle($template, $mapped, $files);
 
+        $pageCount = $this->pageCounter->count($pdfPath) ?? 0;
+        if ($pageCount > 0 && ! $this->balance->canCover($pageCount, $template->tenant_id)) {
+            throw new InsufficientPagesException(
+                $template->tenant_id,
+                $pageCount,
+                $this->balance->balance($template->tenant_id)
+            );
+        }
 
         // 5. Persist inside a transaction.
-        return DB::transaction(function () use ($template, $pdfPath, $xmlPath, $mapped, $ocrText, $title) {
+        return DB::transaction(function () use ($template, $pdfPath, $xmlPath, $mapped, $ocrText, $title, $pageCount) {
             $storedPdf = $this->storeFromLocal($template, $pdfPath, 'pdf');
             $storedXml = $xmlPath ? $this->storeFromLocal($template, $xmlPath, 'xml', pathinfo($storedPdf, PATHINFO_FILENAME)) : null;
             $ocrStatus = match (true) {
@@ -166,7 +187,6 @@ class IngestionService
                 default                     => 'failed',         // engine ran, no text
             };
 
-            $pageCount = $this->pageCounter->count($pdfPath);
 
             $document = Document::create([
                 'area_id'     => $template->area_id,
@@ -186,6 +206,16 @@ class IngestionService
                 $document->content()->create(['body' => $ocrText, 'source' => 'ocr']);
             }
 
+            if ($pageCount > 0) {
+                $this->balance->debit(
+                    pages: $pageCount,
+                    tenantId: $template->tenant_id,
+                    subjectType: \App\Models\Document::class,
+                    subjectId: $document->id,
+                    causedBy: null,        // ingested — no human
+                    note: 'Ingesta: ' . $document->title,
+                );
+            }
             return $document;
         });
     }

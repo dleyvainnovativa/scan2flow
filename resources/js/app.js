@@ -56,6 +56,8 @@ function initPageModule() {
 
   const routes = {
     'documents.show': () => import('./modules/documents-show.js'),
+    'platform.tenants':      () => import('./modules/platform-tenants.js'),      // >>> ADD
+    'platform.tenant-show':  () => import('./modules/platform-tenant-show.js'),  // >>> ADD
     // 'templates.index': () => import('./modules/templates-index.js'),
     // 'areas.show':      () => import('./modules/areas-show.js'),
   };

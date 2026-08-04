@@ -37,9 +37,9 @@ class MysqlFulltextEngine implements SearchEngine
         $contentHits = DB::table('document_contents')
             ->join('documents', 'documents.id', '=', 'document_contents.document_id')
             ->whereIn('documents.area_id', $allowedAreaIds)
-            ->where(fn ($q) => $this->applyStatusVisibility($q, $user))
-            ->when(isset($filters['area_id']), fn ($q) => $q->where('documents.area_id', $filters['area_id']))
-            ->when(isset($filters['template_id']), fn ($q) => $q->where('documents.template_id', $filters['template_id']))
+            ->where(fn($q) => $this->applyStatusVisibility($q, $user))
+            ->when(isset($filters['area_id']), fn($q) => $q->where('documents.area_id', $filters['area_id']))
+            ->when(isset($filters['template_id']), fn($q) => $q->where('documents.template_id', $filters['template_id']))
             ->whereRaw('MATCH(document_contents.body) AGAINST (? IN BOOLEAN MODE)', [$boolean])
             ->selectRaw('documents.id as document_id, MATCH(document_contents.body) AGAINST (? IN BOOLEAN MODE) as score', [$boolean])
             ->limit($limit * 2)
@@ -49,9 +49,9 @@ class MysqlFulltextEngine implements SearchEngine
         $metaHits = DB::table('document_metadata')
             ->join('documents', 'documents.id', '=', 'document_metadata.document_id')
             ->whereIn('documents.area_id', $allowedAreaIds)
-            ->where(fn ($q) => $this->applyStatusVisibility($q, $user))
-            ->when(isset($filters['area_id']), fn ($q) => $q->where('documents.area_id', $filters['area_id']))
-            ->when(isset($filters['template_id']), fn ($q) => $q->where('documents.template_id', $filters['template_id']))
+            ->where(fn($q) => $this->applyStatusVisibility($q, $user))
+            ->when(isset($filters['area_id']), fn($q) => $q->where('documents.area_id', $filters['area_id']))
+            ->when(isset($filters['template_id']), fn($q) => $q->where('documents.template_id', $filters['template_id']))
             ->whereRaw('MATCH(document_metadata.value) AGAINST (? IN BOOLEAN MODE)', [$boolean])
             ->selectRaw('documents.id as document_id, MATCH(document_metadata.value) AGAINST (? IN BOOLEAN MODE) as score', [$boolean])
             ->limit($limit * 2)
@@ -106,7 +106,7 @@ class MysqlFulltextEngine implements SearchEngine
         if ($user->isAdmin()) {
             return DB::table('areas')->pluck('id');
         }
-        return $user->areas()->wherePivot('can_view', true)->pluck('areas.id');
+        return $user->areas()->where('can_view', true)->pluck('areas.id');
     }
 
     /**
@@ -123,7 +123,7 @@ class MysqlFulltextEngine implements SearchEngine
 
         $privilegedAreaIds = $user->areas()
             ->where(function ($q) {
-                $q->wherePivot('can_edit', true)->orWherePivot('can_approve', true);
+                $q->where('can_edit', true)->orWhere('can_approve', true);
             })
             ->pluck('areas.id')
             ->all();
@@ -138,7 +138,7 @@ class MysqlFulltextEngine implements SearchEngine
     private function toBooleanQuery(string $query): string
     {
         return collect($this->terms($query))
-            ->map(fn ($t) => '+' . $t . '*')
+            ->map(fn($t) => '+' . $t . '*')
             ->implode(' ');
     }
 
@@ -147,7 +147,7 @@ class MysqlFulltextEngine implements SearchEngine
     {
         $clean = preg_replace('/[+\-><\(\)~*"@]+/', ' ', $query);
         return collect(preg_split('/\s+/', trim($clean)))
-            ->filter(fn ($t) => mb_strlen($t) >= 2)   // FULLTEXT min token len
+            ->filter(fn($t) => mb_strlen($t) >= 2)   // FULLTEXT min token len
             ->unique()
             ->values()
             ->all();
@@ -187,7 +187,10 @@ class MysqlFulltextEngine implements SearchEngine
         $pos = false;
         foreach ($terms as $t) {
             $p = mb_strpos($lower, Str::lower($t));
-            if ($p !== false) { $pos = $p; break; }
+            if ($p !== false) {
+                $pos = $p;
+                break;
+            }
         }
         if ($pos === false) {
             return null;

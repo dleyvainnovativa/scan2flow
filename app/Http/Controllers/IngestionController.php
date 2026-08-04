@@ -47,8 +47,7 @@ class IngestionController extends Controller
         abort_unless($template->input_folder_path, 422, 'La plantilla no tiene carpeta INPUT.');
 
         if (config('ingestion.mode', 'sync') === 'queue') {
-            IngestTemplateJob::dispatch($template->id);
-
+            IngestTemplateJob::dispatch($template->id, $template->tenant_id);
             return response()->json([
                 'message' => 'Procesamiento en cola. Se ejecutará en segundo plano.',
                 'queued'  => true,
@@ -73,7 +72,7 @@ class IngestionController extends Controller
             ->delete();
 
         if (config('ingestion.mode', 'sync') === 'queue') {
-            IngestTemplateJob::dispatch($template->id);
+            IngestTemplateJob::dispatch($template->id, $template->tenant_id);
             return response()->json(['message' => 'Reintento en cola.', 'queued' => true]);
         }
 

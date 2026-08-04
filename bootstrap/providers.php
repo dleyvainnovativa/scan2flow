@@ -12,4 +12,6 @@ return [
     App\Providers\FirebaseServiceProvider::class,   // >>> ADD THIS LINE <<<
     App\Providers\SearchServiceProvider::class,     // >>> ADD THIS (Phase 4) <<<
     App\Providers\IngestionServiceProvider::class,  // >>> ADD (Module 1) <<<
+    App\Providers\TenancyServiceProvider::class,
+    App\Providers\RouteBindingServiceProvider::class,
 ];

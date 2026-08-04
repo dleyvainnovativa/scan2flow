@@ -6,12 +6,21 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 
+use App\Models\Concerns\BelongsToTenant;
+
 class AuditLog extends Model
 {
+    use BelongsToTenant;
+
     public const UPDATED_AT = null; // only created_at is used
 
     protected $fillable = [
-        'user_id', 'action', 'auditable_type', 'auditable_id', 'summary', 'ip_address',
+        'user_id',
+        'action',
+        'auditable_type',
+        'auditable_id',
+        'summary',
+        'ip_address',
     ];
 
     public function user(): BelongsTo

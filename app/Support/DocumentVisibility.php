@@ -38,9 +38,16 @@ class DocumentVisibility
         }
 
         // Area ids where the user can edit or approve → may see all statuses.
+        // $privilegedAreaIds = $user->areas()
+        //     ->where(function ($q) {
+        //         $q->wherePivot('can_edit', true)->orWherePivot('can_approve', true);
+        //     })
+        //     ->pluck('areas.id')
+        //     ->all();
         $privilegedAreaIds = $user->areas()
-            ->where(function ($q) {
-                $q->wherePivot('can_edit', true)->orWherePivot('can_approve', true);
+            ->where(function (Builder $query) {
+                $query->where('area_user.can_edit', true)
+                    ->orWhere('area_user.can_approve', true);
             })
             ->pluck('areas.id')
             ->all();
