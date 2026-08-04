@@ -22,7 +22,7 @@ class SessionLoginController extends Controller
     {
         if (Auth::check()) {
             return redirect()->route(
-                Auth::user()->is_platform_admin ? 'platform.tenants.index' : 'dashboard'
+                Auth::user()->is_platform_admin ? 'platform.dashboard' : 'dashboard'
             );
         }
 
@@ -81,7 +81,7 @@ class SessionLoginController extends Controller
 
         // Route platform operators to the platform console; tenant users to the app.
         $redirect = $user->is_platform_admin
-            ? route('platform.tenants.index')
+            ? route('platform.dashboard')
             : route('dashboard');
 
         return response()->json(['redirect' => $redirect]);

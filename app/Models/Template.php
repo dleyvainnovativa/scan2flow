@@ -18,7 +18,8 @@ class Template extends Model
         'description',
         'input_folder_path',
         'naming_rule',
-        'ai_enabled'
+        'ai_enabled',
+        'title_source'
     ];
 
     protected static function booted(): void

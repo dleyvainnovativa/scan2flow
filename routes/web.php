@@ -12,7 +12,7 @@ use App\Http\Controllers\Auth\SessionLoginController;
 use App\Http\Controllers\IngestionController;
 use App\Http\Controllers\DocumentReviewController;
 use App\Http\Controllers\Platform\TenantController;
-
+use App\Http\Controllers\Platform\DashboardController as PlatformDashboardController;
 /*
 |--------------------------------------------------------------------------
 | Web Routes — Phase 5 (Polish: audit, errors, flash)
@@ -81,6 +81,7 @@ Route::middleware(['auth', \App\Http\Middleware\EnsurePlatformAdmin::class])
     ->prefix('platform')
     ->name('platform.')
     ->group(function () {
+        Route::get('/', [PlatformDashboardController::class, 'index'])->name('dashboard');
         Route::get('/tenants', [TenantController::class, 'index'])->name('tenants.index');
         Route::post('/tenants', [TenantController::class, 'store'])->name('tenants.store');
         Route::get('/tenants/{tenant}', [TenantController::class, 'show'])->name('tenants.show');

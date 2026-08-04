@@ -32,6 +32,7 @@ class TemplateRequest extends FormRequest
             'fields.*.options.*'    => ['string', 'max:80'],
 
             'ai_enabled' => ['nullable', 'boolean'],
+            'title_source' => ['required', Rule::in(['derived', 'original'])],   // >>> ADD
         ];
     }
 

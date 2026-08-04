@@ -55,6 +55,7 @@ class TemplateController extends Controller
                 'input_folder_path',
                 'naming_rule',
                 'ai_enabled', // >>> ADD
+                'title_source', // >>> ADD
             ])
                 + ['fields' => $template->fields->map->only(['label', 'type', 'is_required', 'options'])]
         );
@@ -73,6 +74,7 @@ class TemplateController extends Controller
                 'input_folder_path',
                 'naming_rule',
                 'ai_enabled',                          // >>> ADD
+                'title_source',
             ]));
 
             $this->syncFields($template, $request->validated('fields'));
@@ -98,6 +100,7 @@ class TemplateController extends Controller
                 'input_folder_path',
                 'naming_rule',
                 'ai_enabled',
+                'title_source',
             ]));
 
             // Replace fields wholesale. Safe in Phase 2 (no documents yet).

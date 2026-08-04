@@ -85,6 +85,16 @@ class IngestionService
                 $record->save();
                 $summary['created']++;
                 $this->archiver->archive($inputDir, $files, success: true);
+            } catch (InsufficientPagesException $e) {
+                // Must come BEFORE the Throwable catch — it's more specific
+                // (InsufficientPagesException extends Throwable). Don't archive
+                // as failure: leave the file in INPUT for a retry after top-up.
+                $record->status = 'failed';
+                $record->error  = 'Saldo de páginas insuficiente.';
+                $record->save();
+                $summary['failed']++;
+                $summary['details'][] = "«{$base}»: {$e->getMessage()}";
+                continue;
             } catch (Throwable $e) {
                 $record->status = 'failed';
                 $record->error = mb_substr($e->getMessage(), 0, 250);
@@ -92,14 +102,6 @@ class IngestionService
                 $summary['failed']++;
                 $summary['details'][] = "«{$base}»: {$e->getMessage()}";
                 $this->archiver->archive($inputDir, $files, success: false);
-            } catch (InsufficientPagesException $e) {
-                $record->status = 'failed';
-                $record->error  = 'Saldo de páginas insuficiente.';
-                $record->save();
-                $summary['failed']++;
-                $summary['details'][] = "«{$base}»: {$e->getMessage()}";
-                // NOTE: do NOT archive as success; leave the file for a retry after top-up.
-                continue;
             }
         }
 
@@ -244,11 +246,22 @@ class IngestionService
 
     private function deriveTitle(Template $template, array $mapped, array $files): string
     {
+        $originalName = pathinfo($files['pdf'], PATHINFO_FILENAME);
+
+        // Per-template toggle via the `title_source` column:
+        //   'original' → use the source PDF's filename as-is
+        //   'derived'  → build a title from CFDI metadata (folio/uuid/serie),
+        //                falling back to the filename. (default)
+        if (($template->title_source ?? 'derived') === 'original') {
+            return $originalName;
+        }
+
         foreach (['folio', 'uuid', 'serie'] as $key) {
             if (! empty($mapped[$key])) {
                 return $template->name . ' ' . $mapped[$key];
             }
         }
-        return pathinfo($files['pdf'], PATHINFO_FILENAME);
+
+        return $originalName;
     }
 }

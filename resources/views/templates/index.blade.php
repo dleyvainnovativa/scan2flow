@@ -101,6 +101,23 @@
                                         </label>
                                     </div>
                                 </div>
+                                 <div class="mb-3">
+                                    <label class="form-label d-block">Título del documento</label>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="title_source"
+                                            id="ts-derived" value="derived" checked>
+                                        <label class="form-check-label" for="ts-derived">
+                                            Automático (folio/UUID del CFDI, si existe)
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="title_source"
+                                            id="ts-original" value="original">
+                                        <label class="form-check-label" for="ts-original">
+                                            Usar el nombre original del archivo
+                                        </label>
+                                    </div>
+                                </div>
                             </div>
 
                             <hr class="my-3">
@@ -247,6 +264,9 @@
                         document.getElementById('t-area').value = t.area_id;
                         document.getElementById('t-input').value = t.input_folder_path || '';
                         document.getElementById('t-ai').checked = !!t.ai_enabled;
+                        const ts = t.title_source || 'derived';
+                        document.getElementById(ts === 'original' ? 'ts-original' : 'ts-derived').checked = true;
+
                         (t.fields || []).forEach(addField);
                         if (!list.children.length) addField();
                         title.textContent = 'Editar plantilla';
@@ -277,6 +297,7 @@
                     input_folder_path: document.getElementById('t-input').value.trim(),
                     naming_rule: 'same_name',
                     ai_enabled: document.getElementById('t-ai').checked,
+                    title_source: document.querySelector('input[name="title_source"]:checked')?.value || 'derived',
                     fields,
                 };
                 const id = idField.value;
