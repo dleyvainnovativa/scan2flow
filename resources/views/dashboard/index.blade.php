@@ -1,11 +1,11 @@
 @extends('layouts.app')
 
-@section('title', 'Panel · Gestor Documental')
+@section('title', 'Dashboard · Gestor Documental')
 
 @section('content')
 <div class="dm-page-head d-flex justify-content-between align-items-start flex-wrap gap-3">
     <div>
-        <h1>Panel</h1>
+        <h1>Dashboard</h1>
         <p>Resumen de tu gestor documental.</p>
     </div>
     <a href="{{ route('search.index') }}" class="btn btn-primary">

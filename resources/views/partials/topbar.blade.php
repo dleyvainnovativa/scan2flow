@@ -4,12 +4,12 @@
         <i class="fa-solid fa-bars"></i>
     </button>
 
-    <form class="flex-grow-1" style="max-width: 480px;" method="GET" action="{{ route('search.index') }}">
+    <form class="flex-grow-1" method="GET" action="{{ route('search.index') }}">
         <div class="position-relative">
             <i class="fa-solid fa-magnifying-glass position-absolute top-50 translate-middle-y ms-3"
-               style="color: var(--dm-text-soft);"></i>
+                style="color: var(--dm-text-soft);"></i>
             <input type="search" name="q" class="form-control ps-5" placeholder="Buscar documentos…"
-                   aria-label="Buscar" value="{{ request()->routeIs('search.*') ? request('q') : '' }}">
+                aria-label="Buscar" value="{{ request()->routeIs('search.*') ? request('q') : '' }}">
         </div>
     </form>
 
@@ -24,13 +24,15 @@
             </button>
             <ul class="dropdown-menu dropdown-menu-end">
                 @auth
-                    <li>
-                        <span class="dropdown-item-text">
-                            <div class="fw-medium">{{ auth()->user()->name }}</div>
-                            <div class="small text-muted mono">{{ auth()->user()->email }}</div>
-                        </span>
-                    </li>
-                    <li><hr class="dropdown-divider"></li>
+                <li>
+                    <span class="dropdown-item-text">
+                        <div class="fw-medium">{{ auth()->user()->name }}</div>
+                        <div class="small text-muted mono">{{ auth()->user()->email }}</div>
+                    </span>
+                </li>
+                <li>
+                    <hr class="dropdown-divider">
+                </li>
                 @endauth
                 <li>
                     <form method="POST" action="{{ route('logout') }}">

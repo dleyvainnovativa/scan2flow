@@ -42,6 +42,10 @@
                                 </span>
                             </td>
                             <td class="text-end pe-3">
+                                <a href="{{ route('users.permissions', $u) }}"
+                                    class="btn btn-sm btn-outline-secondary" title="Permisos por área">
+                                    <i class="fa-solid fa-shield-halved"></i>
+                                </a>
                                 <button class="dm-icon-btn btn-edit" title="Editar"><i class="fa-solid fa-pen"></i></button>
                                 <button class="dm-icon-btn btn-toggle" title="Activar/Desactivar"><i class="fa-solid fa-power-off"></i></button>
                                 <button class="dm-icon-btn btn-delete" title="Eliminar"><i class="fa-solid fa-trash"></i></button>

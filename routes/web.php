@@ -12,6 +12,8 @@ use App\Http\Controllers\Auth\SessionLoginController;
 use App\Http\Controllers\IngestionController;
 use App\Http\Controllers\DocumentReviewController;
 use App\Http\Controllers\Platform\TenantController;
+use App\Http\Controllers\UserPermissionController;
+
 use App\Http\Controllers\Platform\DashboardController as PlatformDashboardController;
 /*
 |--------------------------------------------------------------------------
@@ -68,6 +70,10 @@ Route::middleware(['auth', 'tenant'])->group(function () {
         Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
         Route::post('/users/{user}/toggle', [UserController::class, 'toggleActive'])->name('users.toggle');
         Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
+        Route::get('/users/{user}/permissions', [UserPermissionController::class, 'edit'])
+            ->name('users.permissions');
+        Route::post('/users/{user}/permissions/bulk', [UserPermissionController::class, 'bulk'])
+            ->name('users.permissions.bulk');
 
         Route::get('/audit', [AuditController::class, 'index'])->name('audit.index');
 

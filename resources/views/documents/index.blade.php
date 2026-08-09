@@ -84,7 +84,7 @@
                 <table class="table align-middle mb-0">
                     <thead>
                         <tr class="text-muted small">
-                            <th class="ps-3">Título</th>
+                            <th class="ps-3">Título del PDF</th>
                             @foreach ($activeTemplate->fields as $field)
                                 <th>{{ $field->label }}</th>
                             @endforeach

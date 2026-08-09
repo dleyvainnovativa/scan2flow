@@ -1,13 +1,13 @@
 @extends('layouts.app')
 
-@section('title', 'Áreas · Gestor Documental')
+@section('title', 'Bóvedas · Gestor Documental')
 
 @section('content')
     @php $isAdmin = auth()->user()->isAdmin(); @endphp
 
     <div class="dm-page-head d-flex justify-content-between align-items-start flex-wrap gap-3">
         <div>
-            <h1>Áreas</h1>
+            <h1>Bóvedas</h1>
             <p>Espacios de trabajo que agrupan plantillas y documentos.</p>
         </div>
         @if ($isAdmin)

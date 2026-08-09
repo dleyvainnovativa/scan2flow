@@ -90,7 +90,7 @@ class AreaController extends Controller
         // If nothing is granted, detach entirely.
         if (! $data['can_view'] && ! $data['can_download'] && ! $data['can_edit'] && ! ($data['can_approve'] ?? false)) {
             $area->users()->detach($data['user_id']);
-            return response()->json(['message' => 'Permisos revocados.']);
+            return response()->json(['message' => 'Permisos revocados.', 'flags' => null]);
         }
 
         // download/edit/approve imply view.
@@ -107,6 +107,14 @@ class AreaController extends Controller
             ],
         ]);
 
-        return response()->json(['message' => 'Permisos actualizados.']);
+        return response()->json([
+            'message' => 'Permisos actualizados.',
+            'flags'   => [
+                'can_view'     => $data['can_view'] ?? false,
+                'can_download' => $data['can_download'] ?? false,
+                'can_edit'     => $data['can_edit'] ?? false,
+                'can_approve'  => $data['can_approve'] ?? false,
+            ],
+        ]);
     }
 }
