@@ -12,10 +12,10 @@ use App\Services\MetadataService;
 use App\Services\PdfPageCounter;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-
+use App\Ingestion\InputSourceResolver;
 use App\Services\PageBalanceService;
 use App\Exceptions\InsufficientPagesException;
-
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
@@ -39,6 +39,7 @@ class IngestionService
         private IngestionArchiver $archiver,
         private PdfPageCounter $pageCounter,
         private PageBalanceService $balance,   // >>> ADD
+        private InputSourceResolver $inputSource
     ) {}
 
     /**
@@ -50,13 +51,17 @@ class IngestionService
     {
         $summary = ['found' => 0, 'created' => 0, 'skipped' => 0, 'failed' => 0, 'details' => []];
 
-        $inputDir = $template->input_folder_path;
-        if (! $inputDir || ! is_dir($inputDir)) {
-            $summary['details'][] = "Carpeta INPUT no encontrada: " . ($inputDir ?: '(vacía)');
+        $source = $this->inputSource->resolve($template);   // disk + path
+        $disk = $source['disk'];
+        $path = $source['path'];
+
+        // Validate the input path exists on the disk (works local + sftp).
+        try {
+            $pairs = $this->pairFiles($disk, $path);
+        } catch (\Throwable $e) {
+            $summary['details'][] = "No se pudo leer la carpeta INPUT: {$e->getMessage()}";
             return $summary;
         }
-
-        $pairs = $this->pairFiles($inputDir);
         $summary['found'] = count($pairs);
 
         foreach ($pairs as $base => $files) {
@@ -79,12 +84,15 @@ class IngestionService
             $record->save();
 
             try {
-                $document = $this->processPair($template, $files);
+                $document = $this->processPair($template, $disk, $files);
+
                 $record->document_id = $document->id;
                 $record->status = 'done';
                 $record->save();
                 $summary['created']++;
-                $this->archiver->archive($inputDir, $files, success: true);
+                $this->archiveOnDisk($disk, $source['processedPath'], $files, success: true);
+
+                // $this->archiver->archive($inputDir, $files, success: true);
             } catch (InsufficientPagesException $e) {
                 // Must come BEFORE the Throwable catch — it's more specific
                 // (InsufficientPagesException extends Throwable). Don't archive
@@ -101,7 +109,9 @@ class IngestionService
                 $record->save();
                 $summary['failed']++;
                 $summary['details'][] = "«{$base}»: {$e->getMessage()}";
-                $this->archiver->archive($inputDir, $files, success: false);
+                $this->archiveOnDisk($disk, $source['processedPath'], $files, success: false);
+
+                // $this->archiver->archive($inputDir, $files, success: false);
             }
         }
 
@@ -114,112 +124,126 @@ class IngestionService
      *
      * @return array<string, array{pdf?:string, xml?:string}>
      */
-    private function pairFiles(string $dir): array
+    private function pairFiles(\Illuminate\Contracts\Filesystem\Filesystem $disk, string $dir): array
     {
         $pairs = [];
-        foreach (scandir($dir) ?: [] as $file) {
-            if ($file === '.' || $file === '..') {
-                continue;
-            }
-            $path = rtrim($dir, '/') . '/' . $file;
-            if (! is_file($path)) {
-                continue;
-            }
-            $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+        foreach ($disk->files($dir) as $filePath) {   // returns file paths, no dirs
+            $file = basename($filePath);
+            $ext  = strtolower(pathinfo($file, PATHINFO_EXTENSION));
             $base = pathinfo($file, PATHINFO_FILENAME);
-
-            if ($ext === 'pdf') {
-                $pairs[$base]['pdf'] = $path;
-            } elseif ($ext === 'xml') {
-                $pairs[$base]['xml'] = $path;
-            }
+            if ($ext === 'pdf')      $pairs[$base]['pdf'] = $filePath;
+            elseif ($ext === 'xml')  $pairs[$base]['xml'] = $filePath;
         }
-
-        // Only keep entries that have a PDF (the document's primary file).
         return array_filter($pairs, fn($p) => isset($p['pdf']));
     }
 
-    /** Process a single PDF(+XML) pair into a Document. */
-    private function processPair(Template $template, array $files): Document
+    /**
+     * Process a single PDF(+XML) pair into a Document.
+     *
+     * $files['pdf'] / $files['xml'] are now DISK-RELATIVE paths (local or sftp).
+     * We read bytes through the disk. OCR (tesseract) and pdfinfo need a REAL
+     * local path, so we pull the PDF into a temp file, process it, and clean up.
+     */
+    private function processPair(Template $template, $disk, array $files): Document
     {
         $pdfPath = $files['pdf'];
         $xmlPath = $files['xml'] ?? null;
 
-        // 1. Parse CFDI XML (primary metadata source).
+        // 1. Parse CFDI XML (primary metadata source) — read bytes via the disk.
         $cfdiValues = [];
-        if ($xmlPath && is_file($xmlPath)) {
-            $cfdiValues = $this->cfdi->parse(file_get_contents($xmlPath));
+        if ($xmlPath) {
+            $cfdiValues = $this->cfdi->parse($disk->get($xmlPath));
         }
         $mapped = $this->mapper->map($template, $cfdiValues);
 
-        // 2. OCR (null in M1-P0) — full text for search/highlight.
-        $ocrText = '';
-        if ($this->ocr->isAvailable()) {
-            $ocrText = $this->ocr->extractText($pdfPath);
-        }
+        // Pull the PDF to a temp LOCAL file: OCR + pdfinfo can't run over SFTP.
+        $tmpPdf = tempnam(sys_get_temp_dir(), 'ingest_') . '.pdf';
+        file_put_contents($tmpPdf, $disk->get($pdfPath));
 
-        // 3. AI structuring (null in M1-P0) for fields the XML didn't fill.
-
-        if ($template->ai_enabled && $this->ai->isAvailable() && $ocrText !== '') {
-            $aiValues = $this->ai->structure($ocrText, $template, $mapped);
-            // XML/known values win; AI only fills gaps (array_merge order matters:
-            // $mapped last so it overrides any overlapping AI keys).
-            $mapped = array_merge($aiValues, $mapped);
-        }
-
-        // 4. Derive a human title (prefer folio/uuid, else base name).
-        $title = $this->deriveTitle($template, $mapped, $files);
-
-        $pageCount = $this->pageCounter->count($pdfPath) ?? 0;
-        if ($pageCount > 0 && ! $this->balance->canCover($pageCount, $template->tenant_id)) {
-            throw new InsufficientPagesException(
-                $template->tenant_id,
-                $pageCount,
-                $this->balance->balance($template->tenant_id)
-            );
-        }
-
-        // 5. Persist inside a transaction.
-        return DB::transaction(function () use ($template, $pdfPath, $xmlPath, $mapped, $ocrText, $title, $pageCount) {
-            $storedPdf = $this->storeFromLocal($template, $pdfPath, 'pdf');
-            $storedXml = $xmlPath ? $this->storeFromLocal($template, $xmlPath, 'xml', pathinfo($storedPdf, PATHINFO_FILENAME)) : null;
-            $ocrStatus = match (true) {
-                ! $this->ocr->isAvailable() => 'not_applicable', // no OCR engine bound
-                $ocrText !== ''             => 'done',           // text extracted
-                default                     => 'failed',         // engine ran, no text
-            };
-
-
-            $document = Document::create([
-                'area_id'     => $template->area_id,
-                'template_id' => $template->id,
-                'title'       => $title,
-                'pdf_path'    => $storedPdf,
-                'page_count' => $pageCount,
-                'xml_path'    => $storedXml,
-                'ocr_status' => $ocrStatus,
-                'uploaded_by' => null,        // no human — ingested
-                'status'      => 'pending',   // >>> ADD
-            ]);
-
-            $this->metadata->sync($document, $mapped);
-
-            if ($ocrText !== '') {
-                $document->content()->create(['body' => $ocrText, 'source' => 'ocr']);
+        try {
+            // 2. OCR — full text for search/highlight (runs on the temp file).
+            $ocrText = '';
+            if ($this->ocr->isAvailable()) {
+                $ocrText = $this->ocr->extractText($tmpPdf);
             }
 
-            if ($pageCount > 0) {
-                $this->balance->debit(
-                    pages: $pageCount,
-                    tenantId: $template->tenant_id,
-                    subjectType: \App\Models\Document::class,
-                    subjectId: $document->id,
-                    causedBy: null,        // ingested — no human
-                    note: 'Ingesta: ' . $document->title,
+            // 3. AI structuring for fields the XML didn't fill.
+            if ($template->ai_enabled && $this->ai->isAvailable() && $ocrText !== '') {
+                $aiValues = $this->ai->structure($ocrText, $template, $mapped);
+                // XML/known values win; AI only fills gaps ($mapped last).
+                $mapped = array_merge($aiValues, $mapped);
+            }
+
+            // 4. Derive a human title (prefer folio/uuid, else base name).
+            $title = $this->deriveTitle($template, $mapped, $files);
+
+            // Page count from the temp file; balance pre-check before spending.
+            $pageCount = $this->pageCounter->count($tmpPdf) ?? 0;
+            if ($pageCount > 0 && ! $this->balance->canCover($pageCount, $template->tenant_id)) {
+                throw new InsufficientPagesException(
+                    $template->tenant_id,
+                    $pageCount,
+                    $this->balance->balance($template->tenant_id)
                 );
             }
-            return $document;
-        });
+
+            // 5. Persist inside a transaction. XML bytes are read via the disk
+            //    into a temp file too, so storeFromLocal can copy it as before.
+            $tmpXml = null;
+            if ($xmlPath) {
+                $tmpXml = tempnam(sys_get_temp_dir(), 'ingest_') . '.xml';
+                file_put_contents($tmpXml, $disk->get($xmlPath));
+            }
+
+            try {
+                return DB::transaction(function () use ($template, $tmpPdf, $tmpXml, $mapped, $ocrText, $title, $pageCount) {
+                    $storedPdf = $this->storeFromLocal($template, $tmpPdf, 'pdf');
+                    $storedXml = $tmpXml ? $this->storeFromLocal($template, $tmpXml, 'xml', pathinfo($storedPdf, PATHINFO_FILENAME)) : null;
+
+                    $ocrStatus = match (true) {
+                        ! $this->ocr->isAvailable() => 'not_applicable',
+                        $ocrText !== ''             => 'done',
+                        default                     => 'failed',
+                    };
+
+                    $document = Document::create([
+                        'area_id'     => $template->area_id,
+                        'template_id' => $template->id,
+                        'title'       => $title,
+                        'pdf_path'    => $storedPdf,
+                        'page_count'  => $pageCount,
+                        'xml_path'    => $storedXml,
+                        'ocr_status'  => $ocrStatus,
+                        'uploaded_by' => null,        // no human — ingested
+                        'status'      => 'pending',
+                    ]);
+
+                    $this->metadata->sync($document, $mapped);
+
+                    if ($ocrText !== '') {
+                        $document->content()->create(['body' => $ocrText, 'source' => 'ocr']);
+                    }
+
+                    if ($pageCount > 0) {
+                        $this->balance->debit(
+                            pages: $pageCount,
+                            tenantId: $template->tenant_id,
+                            subjectType: \App\Models\Document::class,
+                            subjectId: $document->id,
+                            causedBy: null,
+                            note: 'Ingesta: ' . $document->title,
+                        );
+                    }
+                    return $document;
+                });
+            } finally {
+                if ($tmpXml) {
+                    @unlink($tmpXml);
+                }
+            }
+        } finally {
+            @unlink($tmpPdf); // always clean up the temp PDF
+        }
     }
 
     /**
@@ -263,5 +287,22 @@ class IngestionService
         }
 
         return $originalName;
+    }
+
+    private function archiveOnDisk($disk, string $processedDir, array $files, bool $success): void
+    {
+        // Move both pdf + xml into processed/ (or a failed/ subfolder).
+        $sub = $success ? '' : 'failed/';
+        foreach (['pdf', 'xml'] as $k) {
+            if (empty($files[$k])) continue;
+            $from = $files[$k];
+            $to   = rtrim($processedDir, '/') . '/' . $sub . basename($from);
+            try {
+                $disk->makeDirectory(dirname($to));
+                $disk->move($from, $to);           // works local + sftp
+            } catch (\Throwable $e) {
+                Log::warning('Archive move failed', ['from' => $from, 'to' => $to, 'error' => $e->getMessage()]);
+            }
+        }
     }
 }

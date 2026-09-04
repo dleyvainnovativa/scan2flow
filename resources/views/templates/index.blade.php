@@ -90,7 +90,32 @@
                                     </select>
                                 </div>
                                 <div class="col-12">
-                                    <label class="form-label" for="t-input">Carpeta INPUT <span class="text-muted">(salida del módulo de captura)</span></label>
+                                    <label class="form-label" for="t-driver">Origen de captura</label>
+                                    <select class="form-select" id="t-driver">
+                                        <option value="local">Carpeta local (en el servidor)</option>
+                                        <option value="sftp">Servidor SFTP</option>
+                                    </select>
+                                </div>
+
+                                {{-- SFTP connection picker (shown only when driver = sftp) --}}
+                                <div class="col-12" id="t-sftp-block" hidden>
+                                    <label class="form-label" for="t-sftp">Conexión SFTP</label>
+                                    <select class="form-select" id="t-sftp">
+                                        <option value="">— Selecciona una conexión —</option>
+                                        @foreach (($sftpConnections ?? []) as $conn)
+                                            <option value="{{ $conn->id }}">{{ $conn->name }}</option>
+                                        @endforeach
+                                    </select>
+                                    @if (($sftpConnections ?? collect())->isEmpty())
+                                        <div class="form-text">No hay conexiones SFTP. Crea una en <a href="{{ route('sftp-connections.index') }}">Conexiones SFTP</a>.</div>
+                                    @endif
+                                </div>
+
+                                <div class="col-12">
+                                    <label class="form-label" for="t-input">
+                                        <span data-input-label="local">Carpeta INPUT <span class="text-muted">(ruta local en el servidor)</span></span>
+                                        <span data-input-label="sftp" hidden>Subcarpeta en el SFTP <span class="text-muted">(relativa a la ruta base)</span></span>
+                                    </label>
                                     <input class="form-control mono" id="t-input" maxlength="255" placeholder="/ruta/a/input/facturas">
                                 </div>
                                 <div class="col-12">
@@ -238,9 +263,22 @@
                 });
             }
 
+            // Show/hide the SFTP connection picker + swap the input-path label.
+            function syncDriver() {
+                const driver = document.getElementById('t-driver').value;
+                document.getElementById('t-sftp-block').hidden = (driver !== 'sftp');
+                document.querySelectorAll('[data-input-label]').forEach(el => {
+                    el.hidden = (el.dataset.inputLabel !== driver);
+                });
+            }
+            document.getElementById('t-driver').addEventListener('change', syncDriver);
+
             function openCreate() {
                 form.reset(); idField.value = ''; list.innerHTML = '';
                 document.getElementById('t-ai').checked = false;
+                document.getElementById('t-driver').value = 'local';
+                document.getElementById('t-sftp').value = '';
+                syncDriver();
                 title.textContent = 'Nueva plantilla';
                 addField(); // start with one
                 modal.show('#tpl-modal');
@@ -263,6 +301,9 @@
                         document.getElementById('t-name').value = t.name;
                         document.getElementById('t-area').value = t.area_id;
                         document.getElementById('t-input').value = t.input_folder_path || '';
+                        document.getElementById('t-driver').value = t.input_driver || 'local';
+                        document.getElementById('t-sftp').value = t.sftp_connection_id || '';
+                        syncDriver();
                         document.getElementById('t-ai').checked = !!t.ai_enabled;
                         const ts = t.title_source || 'derived';
                         document.getElementById(ts === 'original' ? 'ts-original' : 'ts-derived').checked = true;
@@ -295,6 +336,10 @@
                     area_id: document.getElementById('t-area').value,
                     name: document.getElementById('t-name').value.trim(),
                     input_folder_path: document.getElementById('t-input').value.trim(),
+                    input_driver: document.getElementById('t-driver').value,
+                    sftp_connection_id: document.getElementById('t-driver').value === 'sftp'
+                        ? (document.getElementById('t-sftp').value || null)
+                        : null,
                     naming_rule: 'same_name',
                     ai_enabled: document.getElementById('t-ai').checked,
                     title_source: document.querySelector('input[name="title_source"]:checked')?.value || 'derived',

@@ -48,6 +48,11 @@ $isAdminPlatform = auth()->check() && auth()->user()->isPlatformAdmin();
         <a href="{{ route('search.index') }}" class="dm-nav-link {{ $cls('search.*') }}" @if($is('search.*')) aria-current="page" @endif>
             <i class="fa-solid fa-magnifying-glass"></i> Búsqueda de Documentos
         </a>
+        <a href="{{ route('sftp-connections.index') }}"
+            class="dm-nav-link {{ $cls('sftp-connections.*') }}"
+            @if($is('sftp-connections.*')) aria-current="page" @endif>
+            <i class="fa-solid fa-server"></i> Conexiones SFTP
+        </a>
         @endif
         @endif
     </nav>

@@ -33,6 +33,15 @@ class TemplateRequest extends FormRequest
 
             'ai_enabled' => ['nullable', 'boolean'],
             'title_source' => ['required', Rule::in(['derived', 'original'])],   // >>> ADD
+            'input_driver'       => ['required', Rule::in(['local', 'sftp'])],
+            'sftp_connection_id' => [
+                'nullable',
+                'required_if:input_driver,sftp',
+                // Must belong to the current tenant (SftpConnection is tenant-scoped,
+                // so this exists check is naturally constrained, but be explicit):
+                Rule::exists('sftp_connections', 'id')
+                    ->where('tenant_id', app(\App\Support\TenantContext::class)->id()),
+            ],
         ];
     }
 

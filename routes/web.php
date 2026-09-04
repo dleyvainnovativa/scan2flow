@@ -13,6 +13,7 @@ use App\Http\Controllers\IngestionController;
 use App\Http\Controllers\DocumentReviewController;
 use App\Http\Controllers\Platform\TenantController;
 use App\Http\Controllers\UserPermissionController;
+use App\Http\Controllers\SftpConnectionController;
 
 use App\Http\Controllers\Platform\DashboardController as PlatformDashboardController;
 /*
@@ -80,6 +81,12 @@ Route::middleware(['auth', 'tenant'])->group(function () {
         Route::get('/ingestion', [IngestionController::class, 'index'])->name('ingestion.index');
         Route::post('/ingestion/{template}/run', [IngestionController::class, 'run'])->name('ingestion.run');
         Route::post('/ingestion/{template}/retry', [IngestionController::class, 'retryFailed'])->name('ingestion.retry');
+
+        Route::get('/sftp-connections',  [SftpConnectionController::class, 'index'])->name('sftp-connections.index');
+        Route::post('/sftp-connections', [SftpConnectionController::class, 'store'])->name('sftp-connections.store');
+        Route::put('/sftp-connections/{sftp_connection}', [SftpConnectionController::class, 'update'])->name('sftp-connections.update');
+        Route::delete('/sftp-connections/{sftp_connection}', [SftpConnectionController::class, 'destroy'])->name('sftp-connections.destroy');
+        Route::post('/sftp-connections/{sftp_connection}/test', [SftpConnectionController::class, 'test'])->name('sftp-connections.test');
     });
 });
 

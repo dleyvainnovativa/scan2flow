@@ -10,14 +10,16 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use App\Services\PlanGate;
+use App\Models\SftpConnection;
 
 class TemplateController extends Controller
 {
     public function __construct(private PlanGate $planGate) {}
+
     public function index(Request $request)
     {
         $user = $request->user();
-
+        $sftpConnections = SftpConnection::orderBy('name')->get();  // tenant-scoped
         $query = Template::with('area')->withCount('fields')->orderBy('name');
 
         if (! $user->isAdmin()) {
@@ -30,7 +32,7 @@ class TemplateController extends Controller
         $remainingTemplates = app(\App\Services\PlanGate::class)->remaining('templates');
         $used = $remainingTemplates !== null ? $templates->count() : null;
 
-        return view('templates.index', compact('templates', 'areas', 'remainingTemplates', 'used'));
+        return view('templates.index', compact('templates', 'areas', 'remainingTemplates', 'used', 'sftpConnections'));
     }
 
     public function show(Request $request, Template $template)
@@ -56,6 +58,8 @@ class TemplateController extends Controller
                 'naming_rule',
                 'ai_enabled', // >>> ADD
                 'title_source', // >>> ADD
+                'input_driver',
+                'sftp_connection_id',
             ])
                 + ['fields' => $template->fields->map->only(['label', 'type', 'is_required', 'options'])]
         );
@@ -75,6 +79,8 @@ class TemplateController extends Controller
                 'naming_rule',
                 'ai_enabled',                          // >>> ADD
                 'title_source',
+                'input_driver',
+                'sftp_connection_id',
             ]));
 
             $this->syncFields($template, $request->validated('fields'));
@@ -101,6 +107,8 @@ class TemplateController extends Controller
                 'naming_rule',
                 'ai_enabled',
                 'title_source',
+                'input_driver',
+                'sftp_connection_id',
             ]));
 
             // Replace fields wholesale. Safe in Phase 2 (no documents yet).

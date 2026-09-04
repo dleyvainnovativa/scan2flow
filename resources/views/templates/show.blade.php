@@ -55,7 +55,16 @@
                 <div class="dm-card__body">
                     <h2 style="font-size: 1.05rem; font-weight: 600;">Captura</h2>
                     <dl class="mb-0 small">
-                        <dt class="text-muted">Carpeta INPUT</dt>
+                        <dt class="text-muted">Origen</dt>
+                        <dd>
+                            @if (($template->input_driver ?? 'local') === 'sftp')
+                                <span class="dm-badge"><i class="fa-solid fa-server me-1"></i>SFTP</span>
+                                {{ $template->sftpConnection?->name ?? '(conexión eliminada)' }}
+                            @else
+                                <span class="dm-badge"><i class="fa-solid fa-folder me-1"></i>Local</span>
+                            @endif
+                        </dd>
+                        <dt class="text-muted mt-2">{{ ($template->input_driver ?? 'local') === 'sftp' ? 'Subcarpeta' : 'Carpeta INPUT' }}</dt>
                         <dd class="mono">{{ $template->input_folder_path ?: '—' }}</dd>
                         <dt class="text-muted mt-2">Emparejamiento</dt>
                         <dd>PDF + XML con el mismo nombre</dd>

@@ -19,7 +19,9 @@ class Template extends Model
         'input_folder_path',
         'naming_rule',
         'ai_enabled',
-        'title_source'
+        'title_source',
+        'input_driver',
+        'sftp_connection_id'
     ];
 
     protected static function booted(): void
@@ -46,5 +48,9 @@ class Template extends Model
     public function documents(): HasMany
     {
         return $this->hasMany(Document::class);
+    }
+    public function sftpConnection(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(\App\Models\SftpConnection::class);
     }
 }

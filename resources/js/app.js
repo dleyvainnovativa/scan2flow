@@ -59,6 +59,7 @@ function initPageModule() {
     'users.permissions': () => import('./modules/user-permissions.js'),
     'platform.tenants':      () => import('./modules/platform-tenants.js'),      // >>> ADD
     'platform.tenant-show':  () => import('./modules/platform-tenant-show.js'),  // >>> ADD
+     'sftp.index': () => import('./modules/sftp-connections.js'),
     // 'templates.index': () => import('./modules/templates-index.js'),
     // 'areas.show':      () => import('./modules/areas-show.js'),
   };
