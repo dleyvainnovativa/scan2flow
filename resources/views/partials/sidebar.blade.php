@@ -27,7 +27,7 @@ $isAdminPlatform = auth()->check() && auth()->user()->isPlatformAdmin();
         <a href="{{ route('dashboard') }}" class="dm-nav-link {{ $cls('dashboard') }}" @if($is('dashboard')) aria-current="page" @endif>
             <i class="fa-solid fa-gauge-high"></i> Dashboard
         </a>
-        <a href="{{ route('areas.index') }}" class="dm-nav-link {{ ($is('areas.*') || $is('documents.*')) ? 'active' : '' }}" @if($is('areas.*') || $is('documents.*')) aria-current="page" @endif>
+        <a href="{{ route('areas.index') }}" class="dm-nav-link {{ (($is('areas.*') || $is('documents.*')) && ! $is('documents.all')) ? 'active' : '' }}" @if(($is('areas.*') || $is('documents.*')) && ! $is('documents.all')) aria-current="page" @endif>
             <i class="fa-solid fa-sitemap"></i> Bóvedas
         </a>
         <a href="{{ route('users.index') }}" class="dm-nav-link {{ $cls('users.*') }}" @if($is('users.*')) aria-current="page" @endif>
@@ -45,8 +45,14 @@ $isAdminPlatform = auth()->check() && auth()->user()->isPlatformAdmin();
         <a href="{{ route('ingestion.index') }}" class="dm-nav-link {{ $cls('ingestion.*') }}" @if($is('ingestion.*')) aria-current="page" @endif>
             <i class="fa-solid fa-inbox"></i> Procesamiento
         </a>
-        <a href="{{ route('search.index') }}" class="dm-nav-link {{ $cls('search.*') }}" @if($is('search.*')) aria-current="page" @endif>
+        <a href="{{ route('documents.all') }}" class="dm-nav-link {{ $cls('documents.all') }}" @if($is('documents.all')) aria-current="page" @endif>
             <i class="fa-solid fa-magnifying-glass"></i> Búsqueda de Documentos
+        </a>
+        <a href="{{ route('documents.all') }}" class="dm-nav-link {{ $cls('documents.all') }}" @if($is('documents.all')) aria-current="page" @endif>
+            <i class="fa-solid fa-magnifying-glass"></i> Revisión de Metadatos
+        </a>
+        <a href="{{ route('documents.all') }}" class="dm-nav-link {{ $cls('documents.all') }}" @if($is('documents.all')) aria-current="page" @endif>
+            <i class="fa-solid fa-magnifying-glass"></i> Revisión de Imagen
         </a>
         <a href="{{ route('sftp-connections.index') }}"
             class="dm-nav-link {{ $cls('sftp-connections.*') }}"

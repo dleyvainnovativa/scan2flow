@@ -52,6 +52,10 @@ Route::middleware(['auth', 'tenant'])->group(function () {
     Route::delete('/templates/{template}', [TemplateController::class, 'destroy'])->name('templates.destroy');
     Route::post('/templates/{template}/documents', [DocumentController::class, 'store'])->name('documents.store');
 
+    // Documents — global view (all areas the user may see). MUST be declared
+    // before the /documents/{document} wildcard or it'd be captured as an id.
+    Route::get('/documents', [DocumentController::class, 'all'])->name('documents.all');
+
     // Documents
     Route::get('/documents/{document}', [DocumentController::class, 'show'])->name('documents.show');
     Route::put('/documents/{document}', [DocumentController::class, 'update'])->name('documents.update');

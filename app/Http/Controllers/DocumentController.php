@@ -26,7 +26,160 @@ class DocumentController extends Controller
         private AuditService $audit,
         private PdfPageCounter $pageCounter,
         private PageBalanceService $balance,
+        private \App\Contracts\SearchEngine $search,
     ) {}
+
+    /**
+     * Global documents view: every document the user may see across ALL their
+     * areas, with global filters + pagination. Two modes on one page:
+     *
+     *   • BROWSE (no keyword) → Eloquent query, real pagination, and the full
+     *     filter set (area, template, status, date range, and — once a template
+     *     is picked — its dynamic metadata fields, reusing the area-view logic).
+     *
+     *   • SEARCH (keyword present) → delegates to the SearchEngine (FULLTEXT
+     *     over metadata + OCR), returning the top ranked hits with snippets.
+     *     The engine caps results and does its own status-visibility, so this
+     *     mode is not deep-paginated — it's "refine your query".
+     *
+     * ⚠️ Browse mode composes access in the required order: constrain to the
+     * user's viewable areas FIRST, then DocumentVisibility::scope() for status.
+     */
+    public function all(Request $request)
+    {
+        $user = $request->user();
+
+        // Areas the user may view (admins: all tenant areas). Also the option
+        // list for the area filter + the guard for browse-mode scoping.
+        $areas = $user->isAdmin()
+            ? Area::orderBy('name')->get()
+            : $user->areas()->where('can_view', true)->orderBy('name')->get();
+        $viewableAreaIds = $areas->pluck('id');
+
+        // Global filters (apply in both modes where supported).
+        $q          = trim((string) $request->input('q', ''));
+        $areaId     = $request->integer('area_id') ?: null;
+        $templateId = $request->integer('template_id') ?: null;
+        $status     = $request->input('status');
+        $from       = $request->input('from');
+        $to         = $request->input('to');
+
+        if ($status !== null && ! in_array($status, ['pending', 'approved', 'rejected'], true)) {
+            $status = null;
+        }
+
+        // Guard: an area_id filter must be one the user can actually view.
+        if ($areaId && ! $viewableAreaIds->contains($areaId)) {
+            $areaId = null;
+        }
+
+        // Templates for the metadata-filter tier (only when a template chosen).
+        $activeTemplate = null;
+        if ($templateId) {
+            $activeTemplate = Template::with('fields')
+                ->whereIn('area_id', $viewableAreaIds)
+                ->find($templateId);
+            if (! $activeTemplate) {
+                $templateId = null; // not in a viewable area → ignore
+            }
+        }
+
+        $metaFilters = (array) $request->input('f', []);
+
+        // ── SEARCH MODE ──────────────────────────────────────────────────
+        if ($q !== '') {
+            $engineFilters = array_filter([
+                'area_id'     => $areaId,
+                'template_id' => $templateId,
+            ]);
+
+            $results = $viewableAreaIds->isEmpty()
+                ? collect()
+                : $this->search->search($q, $user, $engineFilters);
+
+            return view('documents.all', [
+                'mode'           => 'search',
+                'results'        => $results,
+                'documents'      => null,
+                'areas'          => $areas,
+                'activeTemplate' => $activeTemplate,
+                'q'              => $q,
+                'areaId'         => $areaId,
+                'templateId'     => $templateId,
+                'status'         => $status,
+                'from'           => $from,
+                'to'             => $to,
+                'metaFilters'    => $metaFilters,
+            ]);
+        }
+
+        // ── BROWSE MODE ──────────────────────────────────────────────────
+        if ($viewableAreaIds->isEmpty()) {
+            $documents = Document::whereRaw('1 = 0')->paginate(25); // empty paginator
+        } else {
+            // 1) Area constraint FIRST (see DocumentVisibility warning).
+            $query = Document::whereIn('area_id', $viewableAreaIds)
+                ->with(['area', 'template']);
+
+            if ($areaId) {
+                $query->where('area_id', $areaId);
+            }
+            if ($templateId) {
+                $query->where('template_id', $templateId);
+            }
+            if ($status) {
+                $query->where('status', $status);
+            }
+            if ($from) {
+                $query->whereDate('created_at', '>=', $from);
+            }
+            if ($to) {
+                $query->whereDate('created_at', '<=', $to);
+            }
+
+            // Dynamic metadata filters — only meaningful with a chosen template.
+            if ($activeTemplate) {
+                $fieldsByKey = $activeTemplate->fields->keyBy('key');
+                foreach ($metaFilters as $key => $value) {
+                    $value = trim((string) $value);
+                    if ($value === '' || ! $fieldsByKey->has($key)) {
+                        continue;
+                    }
+                    $field = $fieldsByKey->get($key);
+                    $norm  = $field->normalize($value);
+
+                    $query->whereHas('metadata', function ($sub) use ($field, $norm, $value) {
+                        $sub->where('template_field_id', $field->id);
+                        if (in_array($field->type, ['text'], true)) {
+                            $sub->where('value_norm', 'like', '%' . mb_strtolower($value) . '%');
+                        } else {
+                            $sub->where('value_norm', $norm);
+                        }
+                    });
+                }
+            }
+
+            // 2) Status visibility SECOND.
+            DocumentVisibility::scope($query, $user);
+
+            $documents = $query->orderByDesc('created_at')->paginate(25)->withQueryString();
+        }
+
+        return view('documents.all', [
+            'mode'           => 'browse',
+            'results'        => null,
+            'documents'      => $documents,
+            'areas'          => $areas,
+            'activeTemplate' => $activeTemplate,
+            'q'              => $q,
+            'areaId'         => $areaId,
+            'templateId'     => $templateId,
+            'status'         => $status,
+            'from'           => $from,
+            'to'             => $to,
+            'metaFilters'    => $metaFilters,
+        ]);
+    }
 
     public function index(Request $request, Area $area)
     {
